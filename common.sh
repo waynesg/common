@@ -498,8 +498,8 @@ master)
   sed -i 's?PATCHVER:=.*?PATCHVER:=4.14?g' target/linux/x86/Makefile
   bash -c "$(curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
   rm -rf ${HOME_PATH}/feeds/packages/lang/golang && svn export https://github.com/coolsnowwolf/packages/trunk/lang/golang ${HOME_PATH}/feeds/packages/lang/golang
-  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/waynesg/common/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
-  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/waynesg/common/main//LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/package/libs/libpcap
+  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
+  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/package/libs/libpcap
 ;;
 esac
 
@@ -542,7 +542,7 @@ master)
   sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
   echo -e "\nDISTRIB_RECOGNIZE='20'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
   find . -name 'default-settings' | xargs -i rm -rf {}
-  svn export https://github.com/waynesg/common/main/IMMORTALWRT/default-settings  ${HOME_PATH}/package/emortal/default-settings > /dev/null 2>&1
+  svn export https://github.com/waynesg/common/tree/main/IMMORTALWRT/default-settings  ${HOME_PATH}/package/emortal/default-settings > /dev/null 2>&1
   if [[ `grep -c 'default-settings-chn' "${HOME_PATH}/include/target.mk"` -eq '1' ]]; then
     sed -i 's?default-settings-chn?default-settings?g' "${HOME_PATH}/include/target.mk"
   elif [[ `grep -c 'default-settings' "${HOME_PATH}/include/target.mk"` -eq '0' ]]; then
@@ -591,7 +591,7 @@ find . -type d -name 'default-settings' | xargs -i rm -rf {}
 sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
 echo -e "\nDISTRIB_RECOGNIZE='21'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
 
-svn export https://github.com/waynesg/common/main/OFFICIAL/default-settings ${HOME_PATH}/package/default-settings > /dev/null 2>&1
+svn export https://github.com/waynesg/common/tree/main/OFFICIAL/default-settings ${HOME_PATH}/package/default-settings > /dev/null 2>&1
 sed -i 's?libustream-wolfssl?libustream-openssl?g' "${HOME_PATH}/include/target.mk"
 if [[ `grep -c 'default-settings' "${HOME_PATH}/include/target.mk"` -eq '0' ]] && [[ `grep -c 'dnsmasq-full' "include/target.mk"` -eq '0' ]]; then
   sed -i 's?dnsmasq?default-settings dnsmasq-full luci luci-compat luci-lib-ipkg luci-app-openclash ?g' "include/target.mk"
@@ -605,13 +605,13 @@ if [[ `grep -c 'attendedsysupgrade' "${HOME_PATH}/feeds/luci/collections/luci/Ma
 fi
 
 if [[ "${REPO_BRANCH}" = "openwrt-21.02" ]]; then
-  bash -c "$(curl -fsSL https://github.com/waynesg/common/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
+  bash -c "$(curl -fsSL https://github.com/waynesg/common/blob/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
 elif [[ "${REPO_BRANCH}" = "openwrt-19.07" ]]; then
   sed -i "s?+luci-lib-base?+luci-base?g" ${HOME_PATH}/package/default-settings/Makefile
-  rm -rf ${HOME_PATH}/feeds/packages/devel/packr && svn export https://github.com/waynesg/common/main/OFFICIAL/1907/packr ${HOME_PATH}/feeds/packages/devel/packr
+  rm -rf ${HOME_PATH}/feeds/packages/devel/packr && svn export https://github.com/waynesg/common/tree/main/OFFICIAL/1907/packr ${HOME_PATH}/feeds/packages/devel/packr
   bash -c "$(curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
-  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/waynesg/common/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
-  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/waynesg/common/main/LIENOL/19.07/package/libs/libpcap ${HOME_PATH}/package/libs/libpcap
+  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
+  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/package/libs/libpcap
   rm -rf ${HOME_PATH}/feeds/packages/lang/golang && svn export https://github.com/coolsnowwolf/packages/trunk/lang/golang ${HOME_PATH}/feeds/packages/lang/golang
 fi
 

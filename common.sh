@@ -179,6 +179,20 @@ IMMORTALWRT)
     export DIY_WORK="${FOLDER_NAME}K54"
   fi
 ;;
+XWRT)
+  export REPO_URL="https://github.com/x-wrt/x-wrt"
+  export SOURCE="Xwrt"
+  export SOURCE_OWNER="ptpt52"
+  export PACKAGE_BRANCH="official-master"
+  export LUCI_EDITION="${REPO_BRANCH}"
+  if [[ "${REPO_BRANCH}" == "21.10" ]]; then
+    export DIY_WORK="${FOLDER_NAME}2110"
+  elif [[ "${REPO_BRANCH}" == "22.03" ]]; then
+    export DIY_WORK="${FOLDER_NAME}2203"
+  else
+    export DIY_WORK="${FOLDER_NAME}${REPO_BRANCH}"
+  fi
+;;
 OFFICIAL)
   export REPO_URL="https://github.com/openwrt/openwrt"
   export SOURCE="Official"
@@ -200,6 +214,14 @@ OFFICIAL)
     export LUCI_EDITION="22.03"
     export DIY_WORK="${FOLDER_NAME}2203"
   fi
+;;
+AMLOGIC)
+  export REPO_URL="https://github.com/coolsnowwolf/lede"
+  export SOURCE="Amlogic"
+  export LUCI_EDITION="18.06"
+  export SOURCE_OWNER="Lede's"
+  export PACKAGE_BRANCH="master"
+  export DIY_WORK="${FOLDER_NAME}AMLOGIC"
 ;;
 *)
   TIME r "不支持${SOURCE_CODE}此源码，当前只支持COOLSNOWWOLF、LIENOL、IMMORTALWRT、XWRT、OFFICIAL和AMLOGIC"

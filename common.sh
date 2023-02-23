@@ -179,20 +179,6 @@ IMMORTALWRT)
     export DIY_WORK="${FOLDER_NAME}K54"
   fi
 ;;
-XWRT)
-  export REPO_URL="https://github.com/x-wrt/x-wrt"
-  export SOURCE="Xwrt"
-  export SOURCE_OWNER="ptpt52"
-  export PACKAGE_BRANCH="official-master"
-  export LUCI_EDITION="${REPO_BRANCH}"
-  if [[ "${REPO_BRANCH}" == "21.10" ]]; then
-    export DIY_WORK="${FOLDER_NAME}2110"
-  elif [[ "${REPO_BRANCH}" == "22.03" ]]; then
-    export DIY_WORK="${FOLDER_NAME}2203"
-  else
-    export DIY_WORK="${FOLDER_NAME}${REPO_BRANCH}"
-  fi
-;;
 OFFICIAL)
   export REPO_URL="https://github.com/openwrt/openwrt"
   export SOURCE="Official"
@@ -214,14 +200,6 @@ OFFICIAL)
     export LUCI_EDITION="22.03"
     export DIY_WORK="${FOLDER_NAME}2203"
   fi
-;;
-AMLOGIC)
-  export REPO_URL="https://github.com/coolsnowwolf/lede"
-  export SOURCE="Amlogic"
-  export LUCI_EDITION="18.06"
-  export SOURCE_OWNER="Lede's"
-  export PACKAGE_BRANCH="master"
-  export DIY_WORK="${FOLDER_NAME}AMLOGIC"
 ;;
 *)
   TIME r "不支持${SOURCE_CODE}此源码，当前只支持COOLSNOWWOLF、LIENOL、IMMORTALWRT、XWRT、OFFICIAL和AMLOGIC"
@@ -303,7 +281,7 @@ fi
 
 
 function Diy_update() {
-bash <(curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/custom/ubuntu.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/281677160/common-main/main/custom/ubuntu.sh)
 if [[ $? -ne 0 ]];then
   TIME r "依赖安装失败，请检测网络后再次尝试!"
   exit 1
@@ -470,6 +448,10 @@ fi
 sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
 echo -e "\nDISTRIB_RECOGNIZE='18'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
 
+# 给源码增加passwall为默认自选
+if [[ `grep -c "luci-app-passwall luci-app-openclash" ${HOME_PATH}/include/target.mk` -eq '0' ]]; then
+  sed -i 's?DEFAULT_PACKAGES:=?DEFAULT_PACKAGES:=luci-app-passwall luci-app-openclash ?g' include/target.mk
+fi
 
 # 替换mac80211源码文件
 rm -rf package/kernel/{ath10k-ct,mac80211}
@@ -509,7 +491,7 @@ master)
   sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
   echo -e "\nDISTRIB_RECOGNIZE='20'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
   # Lienol大的21.02PW会显示缺少依赖，要修改一下
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/waynesg/OpenWRT-AutoBuild/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/281677160/common-main/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
 
 ;;
 19.07)
@@ -518,10 +500,10 @@ master)
     
   # Lienol大的19.07补丁
   sed -i 's?PATCHVER:=.*?PATCHVER:=4.14?g' target/linux/x86/Makefile
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/281677160/common-main/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
   rm -rf ${HOME_PATH}/feeds/packages/lang/golang && svn export https://github.com/coolsnowwolf/packages/trunk/lang/golang ${HOME_PATH}/feeds/packages/lang/golang
-  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
-  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/package/libs/libpcap
+  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/281677160/common-main/trunk/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
+  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/281677160/common-main/trunk/LIENOL/19.07/package/libs/libpcap ${HOME_PATH}/package/libs/libpcap
 ;;
 esac
 
@@ -564,7 +546,7 @@ master)
   sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
   echo -e "\nDISTRIB_RECOGNIZE='20'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
   find . -name 'default-settings' | xargs -i rm -rf {}
-  svn export https://github.com/waynesg/common/tree/main/IMMORTALWRT/default-settings  ${HOME_PATH}/package/emortal/default-settings > /dev/null 2>&1
+  svn export https://github.com/281677160/common-main/trunk/IMMORTALWRT/default-settings  ${HOME_PATH}/package/emortal/default-settings > /dev/null 2>&1
   if [[ `grep -c 'default-settings-chn' "${HOME_PATH}/include/target.mk"` -eq '1' ]]; then
     sed -i 's?default-settings-chn?default-settings?g' "${HOME_PATH}/include/target.mk"
   elif [[ `grep -c 'default-settings' "${HOME_PATH}/include/target.mk"` -eq '0' ]]; then
@@ -595,6 +577,47 @@ fi
 }
 
 
+function Diy_XWRT() {
+cd ${HOME_PATH}
+if [[ "${COLLECTED_PACKAGES}" == "true" ]]; then
+  # 删除重复插件（X-WRT）
+  for X in "${HOME_PATH}/feeds" "${HOME_PATH}/package"; do
+    find ${X} -type d -name 'luci-theme-argon' -o -name 'luci-app-argon-config' | xargs -i rm -rf {}
+    find ${X} -type d -name 'adguardhome' -o -name 'luci-app-adguardhome' | xargs -i rm -rf {}
+    find ${X} -type d -name 'v2ray-geodata' -o -name 'mosdns' -o -name 'luci-app-mosdns' | xargs -i rm -rf {}
+    find ${X} -type d -name 'luci-app-smartdns' -o -name 'smartdns' | xargs -i rm -rf {}
+    find ${X} -type d -name 'luci-app-msd_lite' -o -name 'msd_lite' | xargs -i rm -rf {}
+  done
+fi
+find . -type d -name 'default-settings' | xargs -i rm -rf {}
+
+# 给固件LUCI做个标记
+sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
+echo -e "\nDISTRIB_RECOGNIZE='21'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
+  
+svn export https://github.com/281677160/common-main/trunk/OFFICIAL/default-settings ${HOME_PATH}/package/default-settings > /dev/null 2>&1
+sed -i 's?libustream-wolfssl?libustream-openssl?g' "${HOME_PATH}/include/target.mk"
+if [[ `grep -c 'default-settings' "${HOME_PATH}/include/target.mk"` -eq '0' ]] && [[ `grep -c 'dnsmasq-full' "include/target.mk"` -eq '0' ]]; then
+  sed -i 's?dnsmasq?default-settings dnsmasq-full luci luci-compat luci-lib-ipkg luci-app-openclash ?g' "include/target.mk"
+elif [[ `grep -c 'default-settings' "${HOME_PATH}/include/target.mk"` -eq '0' ]]; then
+  dnsmq="$(grep -Eo 'dnsmasq.*' "include/target.mk" |sed 's/^[ ]*//g' |awk '{print $(1)}')"
+  sed -i "s?${dnsmq}?default-settings dnsmasq-full luci luci-compat luci-lib-ipkg luci-app-openclash?g" "include/target.mk"
+fi
+
+if [[ `grep -c 'attendedsysupgrade' "${HOME_PATH}/feeds/luci/collections/luci/Makefile"` -eq '1' ]]; then
+  sed -i '/attendedsysupgrade/d' "${HOME_PATH}/feeds/luci/collections/luci/Makefile"
+fi
+
+if [[ ! -d "package/utils/ucode" ]]; then
+  mkdir -p package/utils/ucode && curl -fsSL https://raw.githubusercontent.com/immortalwrt/immortalwrt/master/package/utils/ucode/Makefile > package/utils/ucode/Makefile
+fi
+
+if [[ `grep -c "net.netfilter.nf_conntrack_helper" ${HOME_PATH}/package/kernel/linux/files/sysctl-nf-conntrack.conf` -eq '0' ]]; then
+  echo "net.netfilter.nf_conntrack_helper = 1" >> ${HOME_PATH}/package/kernel/linux/files/sysctl-nf-conntrack.conf
+fi
+}
+
+
 function Diy_OFFICIAL() {
 cd ${HOME_PATH}
 if [[ "${COLLECTED_PACKAGES}" == "true" ]]; then
@@ -613,7 +636,7 @@ find . -type d -name 'default-settings' | xargs -i rm -rf {}
 sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
 echo -e "\nDISTRIB_RECOGNIZE='21'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
 
-svn export https://github.com/waynesg/common/tree/main/OFFICIAL/default-settings ${HOME_PATH}/package/default-settings > /dev/null 2>&1
+svn export https://github.com/281677160/common-main/trunk/OFFICIAL/default-settings ${HOME_PATH}/package/default-settings > /dev/null 2>&1
 sed -i 's?libustream-wolfssl?libustream-openssl?g' "${HOME_PATH}/include/target.mk"
 if [[ `grep -c 'default-settings' "${HOME_PATH}/include/target.mk"` -eq '0' ]] && [[ `grep -c 'dnsmasq-full' "include/target.mk"` -eq '0' ]]; then
   sed -i 's?dnsmasq?default-settings dnsmasq-full luci luci-compat luci-lib-ipkg luci-app-openclash ?g' "include/target.mk"
@@ -627,19 +650,57 @@ if [[ `grep -c 'attendedsysupgrade' "${HOME_PATH}/feeds/luci/collections/luci/Ma
 fi
 
 if [[ "${REPO_BRANCH}" = "openwrt-21.02" ]]; then
-  bash -c "$(curl -fsSL https://github.com/waynesg/common/blob/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/281677160/common-main/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
 elif [[ "${REPO_BRANCH}" = "openwrt-19.07" ]]; then
   sed -i "s?+luci-lib-base?+luci-base?g" ${HOME_PATH}/package/default-settings/Makefile
-  rm -rf ${HOME_PATH}/feeds/packages/devel/packr && svn export https://github.com/waynesg/common/tree/main/OFFICIAL/1907/packr ${HOME_PATH}/feeds/packages/devel/packr
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
-  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
-  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/waynesg/common/tree/main/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/package/libs/libpcap
+  rm -rf ${HOME_PATH}/feeds/packages/devel/packr && svn export https://github.com/281677160/common-main/trunk/OFFICIAL/1907/packr ${HOME_PATH}/feeds/packages/devel/packr
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/281677160/common-main/main/LIENOL/19.07/package/kernel/linux/modules/netsupport.sh)"
+  rm -rf ${HOME_PATH}/feeds/packages/libs/libcap && svn export https://github.com/281677160/common-main/trunk/LIENOL/19.07/feeds/packages/libs/libcap ${HOME_PATH}/feeds/packages/libs/libcap
+  rm -rf ${HOME_PATH}/package/libs/libpcap && svn export https://github.com/281677160/common-main/trunk/LIENOL/19.07/package/libs/libpcap ${HOME_PATH}/package/libs/libpcap
   rm -rf ${HOME_PATH}/feeds/packages/lang/golang && svn export https://github.com/coolsnowwolf/packages/trunk/lang/golang ${HOME_PATH}/feeds/packages/lang/golang
 fi
 
 if [[ `grep -c "net.netfilter.nf_conntrack_helper" ${HOME_PATH}/package/kernel/linux/files/sysctl-nf-conntrack.conf` -eq '0' ]]; then
   echo "net.netfilter.nf_conntrack_helper = 1" >> ${HOME_PATH}/package/kernel/linux/files/sysctl-nf-conntrack.conf
 fi
+}
+
+
+function Diy_AMLOGIC() {
+cd ${HOME_PATH}
+if [[ "${COLLECTED_PACKAGES}" == "true" ]]; then
+  # 删除重复插件（LEDE - N1等）
+  for X in "${HOME_PATH}/feeds" "${HOME_PATH}/package"; do
+    find ${X} -type d -name 'luci-theme-argon' -o -name 'luci-app-argon-config' -o -name 'mentohust' | xargs -i rm -rf {}
+    find ${X} -type d -name 'luci-app-wrtbwmon' -o -name 'wrtbwmon' -o -name 'luci-app-eqos' | xargs -i rm -rf {}
+    find ${X} -type d -name 'adguardhome' -o -name 'luci-app-adguardhome' -o -name 'luci-app-wol' | xargs -i rm -rf {}
+    find ${X} -type d -name 'v2ray-geodata' -o -name 'mosdns' -o -name 'luci-app-mosdns' | xargs -i rm -rf {}
+    find ${X} -type d -name 'luci-app-smartdns' -o -name 'smartdns' | xargs -i rm -rf {}
+    find ${X} -type d -name 'mac80211' -o -name 'acx-mac80211' -o -name 'ath10k-ct-firmware' -o -name 'b43legacy-firmware' | xargs -i rm -rf {}
+  done
+fi
+  
+# 给固件LUCI做个标记
+sed -i '/DISTRIB_RECOGNIZE/d' "${REPAIR_PATH}"
+echo -e "\nDISTRIB_RECOGNIZE='18'" >> "${REPAIR_PATH}" && sed -i '/^\s*$/d' "${REPAIR_PATH}"
+
+echo "修复NTFS格式优盘不自动挂载"
+packages=" \
+block-mount fdisk usbutils badblocks ntfs-3g kmod-scsi-core kmod-usb-core \
+kmod-usb-ohci kmod-usb-uhci kmod-usb-storage kmod-usb-storage-extras kmod-usb2 kmod-usb3 \
+kmod-fs-ext4 kmod-fs-vfat kmod-fuse luci-app-amlogic unzip curl \
+brcmfmac-firmware-43430-sdio brcmfmac-firmware-43455-sdio kmod-brcmfmac wpad \
+lscpu htop iperf3 curl lm-sensors python3 losetup resize2fs tune2fs pv blkid lsblk parted \
+kmod-usb-net kmod-usb-net-asix-ax88179 kmod-usb-net-rtl8150 kmod-usb-net-rtl8152
+"
+sed -i '/FEATURES+=/ { s/cpiogz //; s/ext4 //; s/ramdisk //; s/squashfs //; }' ${HOME_PATH}/target/linux/armvirt/Makefile
+for x in $packages; do
+  sed -i "/DEFAULT_PACKAGES/ s/$/ $x/" ${HOME_PATH}/target/linux/armvirt/Makefile
+done
+
+echo "修改cpufreq和autocore一些代码适配amlogic"
+sed -i 's/LUCI_DEPENDS.*/LUCI_DEPENDS:=\@\(arm\|\|aarch64\)/g' ${HOME_PATH}/feeds/luci/applications/luci-app-cpufreq/Makefile
+sed -i 's/TARGET_rockchip/TARGET_rockchip\|\|TARGET_armvirt/g' ${HOME_PATH}/package/lean/autocore/Makefile
 }
 
 
@@ -656,7 +717,7 @@ if [[ -n "${ttydjso}" ]]; then
   ttydjson="${HOME_PATH}/${ttydjso}"
 fi
 if [[ -f "${ttydjson}" ]]; then
-  curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/IMMORTALWRT/ttyd/luci-app-ttyd.json -o "${ttydjson}"
+  curl -fsSL https://raw.githubusercontent.com/281677160/common-main/main/IMMORTALWRT/ttyd/luci-app-ttyd.json -o "${ttydjson}"
 fi
 
 [[ -d "${HOME_PATH}/doc" ]] && rm -rf ${HOME_PATH}/doc
@@ -709,26 +770,26 @@ case "${COLLECTED_PACKAGES}" in
 true)
 echo "正在执行：给feeds.conf.default增加插件源"
 # 这里增加了源,要对应的删除/etc/opkg/distfeeds.conf插件源
-#sed -i '/waynesg/d' "${HOME_PATH}/feeds.conf.default"
-#sed -i '/helloworld/d' "${HOME_PATH}/feeds.conf.default"
-#sed -i '/passwall/d' "${HOME_PATH}/feeds.conf.default"
+sed -i '/danshui/d' "${HOME_PATH}/feeds.conf.default"
+sed -i '/helloworld/d' "${HOME_PATH}/feeds.conf.default"
+sed -i '/passwall/d' "${HOME_PATH}/feeds.conf.default"
 
-#cat >>"${HOME_PATH}/feeds.conf.default" <<-EOF
-#src-git waynesg https://github.com/waynesg/Openwrt-SoftWare.git;${PACKAGE_BRANCH}
-#EOF
+cat >>"${HOME_PATH}/feeds.conf.default" <<-EOF
+src-git danshui https://github.com/281677160/openwrt-package.git;${PACKAGE_BRANCH}
+EOF
 
-#if [[ "$(. ${FILES_PATH}/etc/openwrt_release && echo "$DISTRIB_RECOGNIZE")" != "21" ]]; then
-#cat >>"${HOME_PATH}/feeds.conf.default" <<-EOF
-#src-git helloworld https://github.com/fw876/helloworld
-#src-git passwall https://github.com/xiaorouji/openwrt-passwall;packages
-#src-git passwall1 https://github.com/xiaorouji/openwrt-passwall;luci
-#src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2;main
-#EOF
-#fi
-#sed -i '/^#/d' "${HOME_PATH}/feeds.conf.default"
-#sed -i '/^$/d' "${HOME_PATH}/feeds.conf.default"
-#;;
-#*)
+if [[ "$(. ${FILES_PATH}/etc/openwrt_release && echo "$DISTRIB_RECOGNIZE")" != "21" ]]; then
+cat >>"${HOME_PATH}/feeds.conf.default" <<-EOF
+src-git helloworld https://github.com/fw876/helloworld
+src-git passwall https://github.com/xiaorouji/openwrt-passwall;packages
+src-git passwall1 https://github.com/xiaorouji/openwrt-passwall;luci
+src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2;main
+EOF
+fi
+sed -i '/^#/d' "${HOME_PATH}/feeds.conf.default"
+sed -i '/^$/d' "${HOME_PATH}/feeds.conf.default"
+;;
+*)
   echo "没有启用作者收集的插件源包"
 ;;
 esac
@@ -777,6 +838,101 @@ fi
 
 if [[ "${SOURCE_CODE}" == "OFFICIAL" ]] && [[ "${REPO_BRANCH}" == "openwrt-19.07" ]]; then
   devicee="uci set network.ipv6.device='@lan'"
+fi
+
+# AdGuardHome内核
+if [[ ! "${COLLECTED_PACKAGES}" == "true" ]]; then
+  [[ -f "${HOME_PATH}/files/usr/bin/AdGuardHome" ]] && rm -rf ${HOME_PATH}/files/usr/bin/AdGuardHome
+  echo "AdGuardHome_Core=0" >> ${GITHUB_ENV}
+elif [[ "${COLLECTED_PACKAGES}" == "true" ]] && [[ "${AdGuardHome_Core}" == "1" ]]; then
+  echo "AdGuardHome_Core=1" >> ${GITHUB_ENV}
+else
+  [[ -f "${HOME_PATH}/files/usr/bin/AdGuardHome" ]] && rm -rf ${HOME_PATH}/files/usr/bin/AdGuardHome
+  echo "AdGuardHome_Core=0" >> ${GITHUB_ENV}
+fi
+
+# openclash内核
+if [[ ! "${COLLECTED_PACKAGES}" == "true" ]]; then
+  [[ -f "${HOME_PATH}/files/etc/openclash/core/clash" ]] && rm -rf ${HOME_PATH}/files/etc/openclash/core/clash
+  OpenClash_branch="0"
+  echo "OpenClash_Core=0" >> ${GITHUB_ENV}
+  if [[ "${OpenClash_Core}" == "1" ]]; then
+    echo "TIME r \"因没开作者收集的插件包,没OpenClash插件,对openclash的分支选择无效\"" >> ${HOME_PATH}/CHONGTU
+  fi
+elif [[ "${COLLECTED_PACKAGES}" == "true" ]] && [[ "${OpenClash_Core}" == "1" ]]; then
+  echo "OpenClash_Core=1" >> ${GITHUB_ENV}
+else
+  echo "OpenClash_Core=0" >> ${GITHUB_ENV}
+  [[ -f "${HOME_PATH}/files/etc/openclash/core/clash" ]] && rm -rf ${HOME_PATH}/files/etc/openclash/core/clash
+fi
+
+if [[ "${OpenClash_branch}" != "0" && "${OpenClash_branch}" != "dev" && "${OpenClash_branch}" != "master" ]]; then
+  if [[ "${SOURCE_CODE}" =~ (OFFICIAL|Xwrt) ]]; then
+    OpenClash_branch="dev"
+  else
+    OpenClash_branch="master"
+  fi
+fi
+
+uci_openclash="0"
+sj_clash=`date -d "$(date +'%Y-%m-%d %H:%M:%S')" +%s`
+if [[ -d "${HOME_PATH}/package/luci-app-openclash" ]]; then
+  jian_clash="$(ls -1 ${HOME_PATH}/package/luci-app-openclash |grep -Eo sj_[0-9]+)"
+  jiance_clash="${HOME_PATH}/package/luci-app-openclash/${jian_clash}"
+  t1="$(echo "${jian_clash}" |grep -Eo [0-9]+)"
+  t2=`date -d "$(date +'%Y-%m-%d %H:%M:%S')" +%s`
+  SECONDS=$((t2-t1))
+  HOUR=$(( $SECONDS/3600 ))
+fi
+
+if [[ -n "${BENDI_VERSION}" ]]; then
+  if [[ "${HOUR}" -lt "12" ]]; then
+    clashgs="1"
+    echo "OpenClash_Core=0" >> ${GITHUB_ENV}
+  else
+    clashgs="0"
+    echo "OpenClash_Core=${OpenClash_Core}" >> ${GITHUB_ENV}
+  fi
+fi
+
+if [[ -f "${jiance_clash}" ]]; then
+  clash_branch="$(cat ${jiance_clash})"
+else
+  clash_branch="clash_branch"
+fi
+if [[ "${OpenClash_branch}" == "0" ]]; then
+  find . -type d -name 'luci-app-openclash' | xargs -i rm -rf {}
+  echo "OpenClash_Core=0" >> ${GITHUB_ENV}
+  echo "不需要OpenClash插件"
+elif [[ "${OpenClash_branch}" == "${clash_branch}" ]] && [[ "${clashgs}" == "1" ]]; then
+  echo ""
+else
+  find . -type d -name 'luci-app-openclash' | xargs -i rm -rf {}
+  git clone -b "${OpenClash_branch}" --depth 1 https://github.com/vernesong/OpenClash ${HOME_PATH}/package/luci-app-openclash
+  if [[ $? -ne 0 ]]; then
+    echo "luci-app-openclash下载失败"
+  else
+    echo "${OpenClash_branch}" > "${HOME_PATH}/package/luci-app-openclash/sj_${sj_clash}"
+    uci_openclash="1"
+    echo "正在使用"${OpenClash_branch}"分支的openclash"
+  fi
+fi
+
+if [[ "${uci_openclash}" == "1" ]]; then
+  uci_path="${HOME_PATH}/package/luci-app-openclash/luci-app-openclash/root/etc/uci-defaults/luci-openclash"
+  if [[ `grep -c "uci get openclash.config.enable" "${uci_path}"` -eq '0' ]]; then
+    sed -i '/exit 0/d' "${uci_path}"
+    sed -i '/uci -q set openclash.config.enable/d' "${uci_path}"
+    sed -i '/uci -q commit openclash/d' "${uci_path}"
+
+cat >>"${uci_path}" <<-EOF
+if [[ "\$(uci get openclash.config.enable)" == "0" ]] || [[ -z "\$(uci get openclash.config.enable)" ]]; then
+  uci -q set openclash.config.enable=0
+  uci -q commit openclash
+fi
+exit 0
+EOF
+  fi
 fi
 
 
@@ -982,6 +1138,37 @@ if [[ "${Cancel_running}" == "1" ]]; then
    echo "sed -i '/coremark/d' /etc/crontabs/root" >> "${DEFAULT_PATH}"
    echo "删除每天跑分任务完成"
 fi
+
+# 晶晨CPU机型自定义机型,内核,分区
+case "${SOURCE_CODE}" in
+AMLOGIC)
+  if [[ -n "${amlogic_model}" ]]; then
+    echo "amlogic_model=${amlogic_model}" >> ${GITHUB_ENV}
+  else
+    echo "amlogic_model=s905d" >> ${GITHUB_ENV}
+  fi
+  if [[ -n "${amlogic_kernel}" ]]; then
+    echo "amlogic_kernel=${amlogic_kernel}" >> ${GITHUB_ENV}
+  else
+    echo "amlogic_kernel=5.4.01_5.15.01" >> ${GITHUB_ENV}
+  fi
+  if [[ "${auto_kernel}" == "true" ]] || [[ "${auto_kernel}" == "false" ]]; then
+    echo "auto_kernel=${auto_kernel}" >> ${GITHUB_ENV}
+  else
+    echo "auto_kernel=true" >> ${GITHUB_ENV}
+  fi
+  if [[ -n "${rootfs_size}" ]]; then
+    echo "rootfs_size=${rootfs_size}" >> ${GITHUB_ENV}
+  else
+    echo "rootfs_size=960" >> ${GITHUB_ENV}
+  fi
+  echo "kernel_repo=https://github.com/ophub/kernel/tree/main/pub" >> ${GITHUB_ENV}
+  echo "gh_token=${REPO_TOKEN}" >> ${GITHUB_ENV}
+;;
+esac
+[[ -f "${GITHUB_ENV}" ]] && source ${GITHUB_ENV}
+}
+
 
 function Diy_part_sh() {
 cd ${HOME_PATH}
@@ -1197,6 +1384,11 @@ fi
 if [[ `grep -c "CONFIG_PACKAGE_luci-theme-argon=y" ${HOME_PATH}/.config` -eq '1' ]]; then
   pmg="$(echo "$(date +%d)" | sed 's/^.//g')"
   mkdir -p ${HOME_PATH}/files/www/luci-static/argon/background
+  curl -fsSL  https://raw.githubusercontent.com/281677160/openwrt-package/usb/argon/jpg/${pmg}.jpg > ${HOME_PATH}/files/www/luci-static/argon/background/moren.jpg
+  if [[ $? -ne 0 ]]; then
+    echo "拉取文件错误,请检测网络"
+    exit 1
+  fi
   if [[ `grep -c "CONFIG_PACKAGE_luci-theme-argon_new=y" ${HOME_PATH}/.config` -eq '1' ]]; then
     sed -i 's/CONFIG_PACKAGE_luci-theme-argon_new=y/# CONFIG_PACKAGE_luci-theme-argon_new is not set/g' ${HOME_PATH}/.config
     echo "TIME r \"您同时选择luci-theme-argon和luci-theme-argon_new，插件有冲突，相同功能插件只能二选一，已删除luci-theme-argon_new\"" >>CHONGTU
@@ -1244,7 +1436,7 @@ if [[ `grep -c "CONFIG_PACKAGE_luci-app-unblockneteasemusic=y" ${HOME_PATH}/.con
 fi
 
 if [[ `grep -c "CONFIG_PACKAGE_ntfs-3g=y" ${HOME_PATH}/.config` -eq '1' ]]; then
-  mkdir -p ${HOME_PATH}/files/etc/hotplug.d/block && curl -fsSL  https://raw.githubusercontent.com/waynesg/OpenWrt-Software/main/openwrt-diy/10-mount > ${HOME_PATH}/files/etc/hotplug.d/block/10-mount
+  mkdir -p ${HOME_PATH}/files/etc/hotplug.d/block && curl -fsSL  https://raw.githubusercontent.com/281677160/openwrt-package/usb/block/10-mount > ${HOME_PATH}/files/etc/hotplug.d/block/10-mount
   if [[ $? -ne 0 ]]; then
     echo "拉取文件错误,请检测网络"
     exit 1
@@ -1468,6 +1660,139 @@ fi
 }
 
 
+function Diy_adguardhome() {
+cd ${HOME_PATH}
+if [[ `grep -c "CONFIG_ARCH=\"x86_64\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_amd64"
+  Archclash="linux-amd64"
+  echo "CPU架构：amd64"
+elif [[ `grep -c "CONFIG_ARCH=\"i386\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_386"
+  Archclash="linux-386"
+  echo "CPU架构：X86 32"
+elif [[ `grep -c "CONFIG_ARCH=\"aarch64\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_arm64"
+  Archclash="linux-arm64"
+  echo "CPU架构：arm64"
+elif [[ `grep -c "CONFIG_arm_v7=y" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_armv7"
+  Archclash="linux-armv7"
+  echo "CPU架构：armv7"
+elif [[ `grep -c "CONFIG_ARCH=\"arm\"" ${HOME_PATH}/.config` -eq '1' ]] && [[ `grep -c "CONFIG_arm_v7=y" ${HOME_PATH}/.config` -eq '0' ]] && [[ `grep "CONFIG_TARGET_ARCH_PACKAGES" "${HOME_PATH}/.config" |grep -c "vfp"` -eq '1' ]]; then
+  Arch="linux_armv6"
+  Archclash="linux-armv6"
+  echo "CPU架构：armv6"
+elif [[ `grep -c "CONFIG_ARCH=\"arm\"" ${HOME_PATH}/.config` -eq '1' ]] && [[ `grep -c "CONFIG_arm_v7=y" ${HOME_PATH}/.config` -eq '0' ]] && [[ `grep "CONFIG_TARGET_ARCH_PACKAGES" "${HOME_PATH}/.config" |grep -c "vfp"` -eq '0' ]]; then
+  Arch="linux_armv5"
+  Archclash="linux-armv5"
+  echo "CPU架构：armv6"
+elif [[ `grep -c "CONFIG_ARCH=\"mips\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_mips_softfloat"
+  Archclash="linux-mips-softfloat"
+  echo "CPU架构：mips"
+elif [[ `grep -c "CONFIG_ARCH=\"mips64\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_mips64_softfloat"
+  Archclash="linux-mips64"
+  echo "CPU架构：mips64"
+elif [[ `grep -c "CONFIG_ARCH=\"mipsel\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_mipsle_softfloat"
+  Archclash="linux-mipsle-softfloat"
+  echo "CPU架构：mipsel"
+elif [[ `grep -c "CONFIG_ARCH=\"mips64el\"" ${HOME_PATH}/.config` -eq '1' ]]; then
+  Arch="linux_mips64le_softfloat"
+  Archclash="linux-mips64le"
+  echo "CPU架构：mips64el"
+else
+  echo "不了解您的CPU为何架构"
+  weizhicpu="1"
+fi
+
+if [[ ! "${weizhicpu}" == "1" ]] && [[ "${OpenClash_Core}" == "1" ]] && [[ `grep -c "CONFIG_PACKAGE_luci-app-openclash=y" ${HOME_PATH}/.config` -eq '1' ]]; then
+  echo "正在执行：给openclash下载核心"
+  rm -rf ${HOME_PATH}/files/etc/openclash/core
+  rm -rf ${HOME_PATH}/clash-neihe && mkdir -p ${HOME_PATH}/clash-neihe
+  mkdir -p ${HOME_PATH}/files/etc/openclash/core
+  cd ${HOME_PATH}/clash-neihe
+  if [[ "${Archclash}" == "linux-amd64" ]]; then
+    wget -q https://raw.githubusercontent.com/vernesong/OpenClash/master/core-lateset/meta/clash-${Archclash}.tar.gz -O meta.tar.gz
+    wget -q https://raw.githubusercontent.com/vernesong/OpenClash/master/core-lateset/dev/clash-${Archclash}.tar.gz -O clash.tar.gz
+    curl -H "Authorization: Bearer ${REPO_TOKEN}" https://api.github.com/repos/vernesong/OpenClash/contents/core-lateset/premium -o premium.api
+    if [[ `grep -c "name" premium.api` -eq '0' ]]; then
+      wget -q https://github.com/281677160/common-main/releases/download/API/premium.api -O premium.api
+    fi
+    amd64_kernel="$(grep -Eo "clash-${Archclash}-.*.gz" premium.api |grep -v 'v3' |awk 'NR==1')"
+    wget -q https://raw.githubusercontent.com/vernesong/OpenClash/master/core-lateset/premium/${amd64_kernel} -O clash_tun.gz
+    
+    tar -zxvf clash.tar.gz -O > clash
+    if [[ $? -eq 0 ]];then
+      mv -f ${HOME_PATH}/clash-neihe/clash ${HOME_PATH}/files/etc/openclash/core/clash
+      sudo chmod +x ${HOME_PATH}/files/etc/openclash/core/clash
+      echo "OpenClash增加clash内核成功"
+    else
+      echo "OpenClash增加clash内核失败"
+    fi
+    tar -zxvf meta.tar.gz -O > clash_meta
+    if [[ $? -eq 0 ]];then
+      mv -f ${HOME_PATH}/clash-neihe/clash_meta ${HOME_PATH}/files/etc/openclash/core/clash_meta
+      sudo chmod +x ${HOME_PATH}/files/etc/openclash/core/clash_meta
+      echo "OpenClash增加clash_meta内核成功"
+    else
+      echo "OpenClash增加clash_meta内核失败"
+    fi
+    gzip -d clash_tun.gz
+    if [[ $? -eq 0 ]];then
+      mv -f ${HOME_PATH}/clash-neihe/clash_tun ${HOME_PATH}/files/etc/openclash/core/clash_tun
+      sudo chmod +x ${HOME_PATH}/files/etc/openclash/core/clash_tun
+      echo "clash"
+      echo "OpenClash增加clash_tun内核成功"
+    else
+      echo "OpenClash增加clash_tun内核失败"
+    fi
+  else
+    wget -q https://raw.githubusercontent.com/vernesong/OpenClash/master/core-lateset/dev/clash-${Archclash}.tar.gz
+    if [[ $? -ne 0 ]];then
+      wget -q https://github.com/vernesong/OpenClash/releases/download/Clash/clash-${Archclash}.tar.gz
+    else
+      echo "OpenClash内核下载成功"
+    fi
+    tar -zxvf clash-${Archclash}.tar.gz
+    if [[ -f "${HOME_PATH}/clash-neihe/clash" ]]; then
+      mv -f ${HOME_PATH}/clash-neihe/clash ${HOME_PATH}/files/etc/openclash/core/clash
+      sudo chmod +x ${HOME_PATH}/files/etc/openclash/core/clash
+      echo "OpenClash增加内核成功"
+    else
+      echo "OpenClash增加内核失败"
+    fi
+  fi
+  cd ${HOME_PATH}
+  rm -rf ${HOME_PATH}/clash-neihe
+fi
+
+if [[ ! "${weizhicpu}" == "1" ]] && [[ "${AdGuardHome_Core}" == "1" ]] && [[ `grep -c "CONFIG_PACKAGE_luci-app-adguardhome=y" ${HOME_PATH}/.config` -eq '1' ]]; then
+  echo "正在执行：给adguardhome下载核心"
+  rm -rf ${HOME_PATH}/AdGuardHome && rm -rf ${HOME_PATH}/files/usr/bin
+  downloader="curl -L -k --retry 2 --connect-timeout 20 -o"
+  latest_ver="$($downloader - https://api.github.com/repos/AdguardTeam/AdGuardHome/releases/latest 2>/dev/null|grep -E 'tag_name' |grep -E 'v[0-9.]+' -o 2>/dev/null)"
+  wget -q https://github.com/AdguardTeam/AdGuardHome/releases/download/${latest_ver}/AdGuardHome_${Arch}.tar.gz
+  if [[ -f "AdGuardHome_${Arch}.tar.gz" ]]; then
+    tar -zxvf AdGuardHome_${Arch}.tar.gz -C ${HOME_PATH}
+    echo "核心下载成功"
+  else
+    echo "下载核心失败"
+  fi
+  mkdir -p ${HOME_PATH}/files/usr/bin
+  if [[ -f "${HOME_PATH}/AdGuardHome/AdGuardHome" ]]; then
+    mv -f ${HOME_PATH}/AdGuardHome/AdGuardHome ${HOME_PATH}/files/usr/bin/
+    sudo chmod +x ${HOME_PATH}/files/usr/bin/AdGuardHome
+    echo "增加AdGuardHome核心完成"
+  else
+    echo "增加AdGuardHome核心失败"
+  fi
+    rm -rf ${HOME_PATH}/{AdGuardHome_${Arch}.tar.gz,AdGuardHome}
+fi
+}
+
+
 function Diy_upgrade2() {
 cd ${HOME_PATH}
 sed -i '/#\!\/bin\//d' "${DEFAULT_PATH}"
@@ -1483,6 +1808,34 @@ sed -i '$a\exit 0' "${ZZZ_PATH}"
 
 if [[ "${UPDATE_FIRMWARE_ONLINE}" == "true" ]]; then
   source ${BUILD_PATH}/upgrade.sh && Diy_Part2
+fi
+}
+
+
+function Package_amlogic() {
+echo "正在执行：打包N1和景晨系列固件"
+# 下载上游仓库
+cd ${GITHUB_WORKSPACE}
+[[ -d "${GITHUB_WORKSPACE}/amlogic" ]] && sudo rm -rf ${GITHUB_WORKSPACE}/amlogic
+git clone --depth 1 https://github.com/ophub/amlogic-s9xxx-openwrt.git ${GITHUB_WORKSPACE}/amlogic
+[ ! -d ${GITHUB_WORKSPACE}/amlogic/openwrt-armvirt ] && mkdir -p ${GITHUB_WORKSPACE}/amlogic/openwrt-armvirt
+if [[ `ls -1 "${FIRMWARE_PATH}" |grep -c ".*default-rootfs.tar.gz"` == '1' ]]; then
+  cp -Rf ${FIRMWARE_PATH}/*default-rootfs.tar.gz ${GITHUB_WORKSPACE}/amlogic/openwrt-armvirt/openwrt-armvirt-64-default-rootfs.tar.gz && sync
+else
+  armvirtargz="$(ls -1 "${FIRMWARE_PATH}" |grep ".*tar.gz" |awk 'END {print}')"
+  cp -Rf ${FIRMWARE_PATH}/${armvirtargz} ${GITHUB_WORKSPACE}/amlogic/openwrt-armvirt/openwrt-armvirt-64-default-rootfs.tar.gz && sync
+fi
+
+echo "开始打包"
+cd ${GITHUB_WORKSPACE}/amlogic
+sudo chmod +x make
+sudo ./make -b ${amlogic_model} -k ${amlogic_kernel} -a ${auto_kernel} -s ${rootfs_size}
+if [[ 0 -eq $? ]]; then
+  sudo mv -f ${GITHUB_WORKSPACE}/amlogic/out/* ${FIRMWARE_PATH}/ && sync
+  sudo rm -rf ${GITHUB_WORKSPACE}/amlogic
+  TIME g "固件打包完成,已将固件存入${FIRMWARE_PATH}文件夹内"
+else
+  TIME r "固件打包失败"
 fi
 }
 
@@ -1686,6 +2039,7 @@ function Diy_menu5() {
 Diy_prevent
 Make_defconfig
 Diy_Publicarea2
+Diy_adguardhome
 Diy_upgrade2
 }
 

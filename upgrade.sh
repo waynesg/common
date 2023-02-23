@@ -139,7 +139,7 @@ Github_Release="${Github_Release}"
 Release_download1="${Release_download1}"
 Release_download2="${Release_download2}"
 EOF
-	bash <(curl -fsSL https://raw.githubusercontent.com/waynesg/OpenWRT-AutoBuild/main/build/common/autoupdate/replacebianliang.sh)
+	bash <(curl -fsSL https://raw.githubusercontent.com/waynesg/common/main/autoupdate/replacebianliang.sh)
 	sudo chmod +x ${In_Firmware_Replace}
 }
 
